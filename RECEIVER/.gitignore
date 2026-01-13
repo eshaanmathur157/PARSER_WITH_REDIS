@@ -1,0 +1,14 @@
+# C++ Binaries and Objects
+*.o
+parser_linux
+*.out
+
+# Python
+__pycache__/
+venv/
+*.pyc
+
+# Data
+*.csv
+*.json
+solana_json_shm

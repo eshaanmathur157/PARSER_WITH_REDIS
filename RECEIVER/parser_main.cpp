@@ -24,16 +24,13 @@
 #include "stage1_simd.h"
 #include "stage2_processing.h"
 #include "arrow_utils.h"
-#include <sw/redis++/redis++.h> // wrapper for Redis
-#include <nlohmann/json.hpp>    // strictly for parsing the Redis JSON msg easily
+
 // --- Shared Memory Configuration ---
 // Python: shm = shared_memory.SharedMemory(name="solana_json_shm", ...)
 // On Linux, this usually maps to /dev/shm/solana_json_shm
 const char* SHM_NAME = "solana_json_shm";
 const size_t SHM_SIZE = 10 * 1024 * 1024; // 10MB
 
-using json = nlohmann::json;
-using namespace sw::redis;
 // Offsets matches your Python script
 const size_t FLAG_OFFSET = 0;
 const size_t SIZE_OFFSET = 1;
@@ -42,43 +39,6 @@ const size_t DATA_OFFSET = 9;
 // --- FLIGHT SERVER CONFIGURATION ---
 // Ensure your Python/Java Flight Server is listening here
 const std::string FLIGHT_SERVER_URI = "grpc://0.0.0.0:8815";
-
-void redis_listener_thread(HotAddressLookups& hot_addrs) {
-    try {
-        // Connect to Redis
-        auto redis = Redis("tcp://20.46.50.39:6379");
-        
-        // Create Subscriber
-        auto sub = redis.subscriber();
-        
-        sub.on_message([&hot_addrs](std::string channel, std::string msg) {
-            try {
-                // Msg is: {"base_mint": "...", "quote_mint": "...", "base_vault": "...", "quote_vault": "..."}
-                auto j = json::parse(msg);
-                
-                std::string base_vault = j["base_vault"];
-                std::string quote_vault = j["quote_vault"];
-
-                // Call the thread-safe update function
-                hot_addrs.add_new_vaults(base_vault, quote_vault);
-
-            } catch (const std::exception& e) {
-                std::cerr << "[Redis Listener Error] Parse failed: " << e.what() << std::endl;
-            }
-        });
-
-        sub.subscribe("pool-monitor");
-        std::cout << "[Redis Listener] Subscribed to channel: pool-monitor" << std::endl;
-
-        // Loop forever consuming messages
-        while (true) {
-            sub.consume();
-        }
-
-    } catch (const Error& e) {
-        std::cerr << "[Redis Listener CRITICAL] " << e.what() << std::endl;
-    }
-}
 
 // ----------------------------------
 int main(int argc, char *argv[]) {
@@ -89,11 +49,9 @@ int main(int argc, char *argv[]) {
     }
 
     std::cout << "Loading hot addresses from: " << argv[1] << std::endl;
-    HotAddressLookups hot_addresses; 
-    load_hot_addresses(argv[1], hot_addresses);
+    HotAddressLookups hot_addresses = load_hot_addresses(argv[1]);
     std::cout << "Loaded hot addresses." << std::endl;
-    std::thread redis_thread(redis_listener_thread, std::ref(hot_addresses));
-    redis_thread.detach();
+
     // --- 2. Connect to Shared Memory ---
     int shm_fd = shm_open(SHM_NAME, O_RDWR, 0666);
     if (shm_fd == -1) {

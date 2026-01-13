@@ -1,0 +1,15 @@
+# Ignore compiled binaries in any folder
+*.o
+*.out
+parser_linux
+
+# Ignore Python junk in any folder
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Ignore large data files
+*.csv
+*.json
+solana_json_shm

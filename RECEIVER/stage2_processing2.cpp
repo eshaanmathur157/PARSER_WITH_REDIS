@@ -321,7 +321,6 @@ void process_transactions_parallel(
     const int64_t BATCH_SIZE_THRESHOLD = 10000;
 
     auto worker_fn = [&](size_t thread_id) {
-        std::shared_lock<std::shared_mutex> lock(hot_addresses.rw_mutex);
         ThreadLocalBuilders builders;
         OwnerMintMap tx_map;
         std::vector<std::string_view> address_strings;

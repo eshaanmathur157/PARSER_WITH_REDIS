@@ -34,9 +34,6 @@
 #define XXH_STATIC_LINKING_ONLY
 #include "xxhash.h"
 
-//SYNCHRONIZATION
-#include <shared_mutex> 
-#include <mutex>        
 // --- Shared Structs & Types ---
 
 // Holds the string views for the 5 key arrays of a single transaction
@@ -51,47 +48,19 @@ struct TxKeyViews {
 // Struct to hold pre/post balances.
 struct BalancePair {
     std::string_view pre;
-
-
-
-
-
     std::string_view post; // Will be empty if not found
 };
 
 // Holds all the data needed for hot address lookups
 struct HotAddressLookups {
-    // --- Data Storage ---
+    // This vector OWNs the strings, ensuring string_views are valid.
     std::vector<std::string> storage;
+    
+    // This set is for fast filtering (Task 1: Find TX)
     std::unordered_set<uint64_t> pool_hashes;
+    
+    // This map is for fast replacement (Task 2: Replace Owner)
     std::unordered_map<uint64_t, std::string_view> hash_to_addr_map;
-
-    // --- Synchronization ---
-    // 'mutable' allows us to lock it even if the struct instance is passed as 'const'
-    mutable std::shared_mutex rw_mutex; 
-
-    // --- Helper to safely add new vaults ---
-    void add_new_vaults(const std::string& base_vault, const std::string& quote_vault) {
-        // 1. Acquire WRITE Lock (blocks all readers)
-        std::unique_lock<std::shared_mutex> lock(rw_mutex);
-
-        // 2. Add Base Vault
-        storage.push_back(base_vault);
-        std::string_view base_view = storage.back();
-        uint64_t base_hash = XXH3_64bits_withSeed(base_view.data(), base_view.length(), 0);
-        pool_hashes.insert(base_hash);
-        hash_to_addr_map[base_hash] = base_view;
-
-        // 3. Add Quote Vault
-        storage.push_back(quote_vault);
-        std::string_view quote_view = storage.back();
-        uint64_t quote_hash = XXH3_64bits_withSeed(quote_view.data(), quote_view.length(), 0);
-        pool_hashes.insert(quote_hash);
-        hash_to_addr_map[quote_hash] = quote_view;
-        
-        // Lock releases automatically here
-        std::cout << "[Redis Update] Added Base: " << base_vault << " | Quote: " << quote_vault << std::endl;
-    }
 };
 
 // Each thread will have its own set of builders
