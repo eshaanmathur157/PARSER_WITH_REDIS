@@ -6,7 +6,7 @@ g++ -O3 -march=native -mavx2 -mpclmul  parser_main.cpp file_utils.cpp arrow_util
 SERVER -> IT HAS THE FLIGHT SERVER, INFERENCE, INGEST PRICES, COMBINED SUBSCRIBER.
 python flightServerWithRW.py
 
-python inference2.py --> ASYNC MODEL RUNNING
+python inference2.py --> ASYNC MODEL RUNNING 
 
 python ingest_prices.py
 
